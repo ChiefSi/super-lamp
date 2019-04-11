@@ -85,6 +85,7 @@ sed "s#%{DIRECTORY}#${OUTPUT}#g" "${ROOT_SSL_CNF}" > openssl.cnf
 
 mkdir intermediates templates
 cp "${INTERMEDIATE_SSL_CNF_TEMPLATE}" templates/
+cp "${GENERATE_INTERMEDIATE_SCRIPT}" templates/
 sed "s#%{SIGNING_CA_DIR}#${OUTPUT}#g" "${GENERATE_INTERMEDIATE_SCRIPT}" > generate-intermediate-ca.sh
 chmod 755 generate-intermediate-ca.sh
 
@@ -105,5 +106,8 @@ openssl x509 -noout -text \
 	-certopt no_pubkey -certopt no_sigdump \
 	-nameopt multiline \
 	-in certs/ca.cert.pem
+
+# To allow for recursive scripts create a ca chain of 1 for the root CA
+cp certs/ca.cert.pem certs/ca-chain.cert.pem
 
 popd >/dev/null

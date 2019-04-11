@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -ex
 
 function message()
 {
@@ -17,7 +17,9 @@ EOF
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 POSITIONAL=()
 
-OPENSSL_CNF="${DIR}/root.cnf.in"
+ROOT_SSL_CNF="${DIR}/root.cnf.in"
+GENERATE_INTERMEDIATE_SCRIPT="${DIR}/generate-intermediate-ca.sh.in"
+INTERMEDIATE_SSL_CNF_TEMPLATE="${DIR}/intermediate.cnf.in"
 
 while [[ $# -gt 0 ]]; do
 	key="$1"
@@ -54,7 +56,12 @@ chmod 700 private
 touch index.txt
 echo 1000 > serial
 
-sed "s#%{DIRECTORY}#${OUTPUT}#g" "${OPENSSL_CNF}" > openssl.cnf
+sed "s#%{DIRECTORY}#${OUTPUT}#g" "${ROOT_SSL_CNF}" > openssl.cnf
+
+mkdir intermediates templates
+cp "${INTERMEDIATE_SSL_CNF_TEMPLATE}" templates/
+sed "s#%{SIGNING_CA_DIR}#${OUTPUT}#g" "${GENERATE_INTERMEDIATE_SCRIPT}" > generate-intermediate-ca.sh
+chmod 755 generate-intermediate-ca.sh
 
 message "Generating CA private key"
 openssl genrsa -aes256 -out private/ca.key.pem 4096

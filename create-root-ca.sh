@@ -1,4 +1,4 @@
-#!/bin/bash -ex
+#!/bin/bash -e
 
 function message()
 {
@@ -12,6 +12,31 @@ Usage: $0 <DIRECTORY> [-h|--help]
 	   Generate certificate authority files/scripts in DIRECTORY
 
 EOF
+}
+
+function prompt_and_store_passphrase()
+{
+	OUTPUT="${1}"
+	ATTEMPT=0
+	while [ $ATTEMPT -lt 3 ]; do
+
+		echo -n "Enter passphrase: "
+		read -s PASS1
+		echo
+
+		echo -n "Confirm passphrase: "
+		read -s PASS2
+		echo
+
+		if [ ${PASS1} = ${PASS2} ]; then
+			echo "${PASS1}" > "${OUTPUT}"
+			break
+		else
+			echo "Passwords do not match"
+			ATTEMPT=$[$ATTEMPT+1]
+			[ $ATTEMPT -gt 3 ] && exit 1
+		fi
+	done
 }
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
@@ -63,11 +88,12 @@ cp "${INTERMEDIATE_SSL_CNF_TEMPLATE}" templates/
 sed "s#%{SIGNING_CA_DIR}#${OUTPUT}#g" "${GENERATE_INTERMEDIATE_SCRIPT}" > generate-intermediate-ca.sh
 chmod 755 generate-intermediate-ca.sh
 
-message "Generating CA private key"
-openssl genrsa -aes256 -out private/ca.key.pem 4096
+message "Generating CA private key (private/ca.key.pem)"
+prompt_and_store_passphrase private/passphrase
+openssl genrsa -aes256 -out private/ca.key.pem -passout file:private/passphrase 4096
 chmod 400 private/ca.key.pem
 
-message "Generating CA certificate"
+message "Generating CA certificate (certs/ca.cert.pem)"
 openssl req -config openssl.cnf \
 	  -key private/ca.key.pem \
 	  -new -x509 -days 7300 -sha256 -extensions v3_ca \

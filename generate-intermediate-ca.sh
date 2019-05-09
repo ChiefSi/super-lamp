@@ -120,7 +120,16 @@ openssl x509 -noout -text \
 	-in certs/intermediate.cert.pem
 
 message "Verifying intermediate certificate"
-openssl verify -CAfile ${SIGNING_CA_DIR}/certs/ca.cert.pem certs/intermediate.cert.pem
+# Only the root certificiate is ca.cert.pem, others are intermediate.cert.pem
+if [ -f "${SIGNING_CA_DIR}/certs/ca.cert.pem" ]; then
+	openssl verify -CAfile ${SIGNING_CA_DIR}/certs/ca.cert.pem certs/intermediate.cert.pem
+elif [ -f "${SIGNING_CA_DIR}/certs/intermediate.cert.pem" ]; then
+	openssl verify -CAfile ${SIGNING_CA_DIR}/certs/intermediate.cert.pem certs/intermediate.cert.pem
+else
+	# should not occur
+	echo "Failed to locate the signing certificate"
+	exit 1
+fi
 
 cat certs/intermediate.cert.pem ${SIGNING_CA_DIR}/certs/ca-chain.cert.pem > certs/ca-chain.cert.pem
 chmod 444 certs/ca-chain.cert.pem

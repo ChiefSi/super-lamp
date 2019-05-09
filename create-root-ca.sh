@@ -44,6 +44,8 @@ POSITIONAL=()
 
 ROOT_SSL_CNF="${DIR}/root.cnf.in"
 GENERATE_INTERMEDIATE_SCRIPT="${DIR}/generate-intermediate-ca.sh"
+GENERATE_CLIENT_SCRIPT="${DIR}/generate-client.sh"
+GENERATE_SERVER_SCRIPT="${DIR}/generate-server.sh"
 INTERMEDIATE_SSL_CNF_TEMPLATE="${DIR}/intermediate.cnf.in"
 
 while [[ $# -gt 0 ]]; do
@@ -83,10 +85,14 @@ echo 1000 > serial
 
 sed "s#%{DIRECTORY}#${OUTPUT}#g" "${ROOT_SSL_CNF}" > openssl.cnf
 
-mkdir intermediates templates
+mkdir intermediates templates clients servers
 cp "${INTERMEDIATE_SSL_CNF_TEMPLATE}" templates/
 cp "${GENERATE_INTERMEDIATE_SCRIPT}" generate-intermediate-ca.sh
+cp "${GENERATE_CLIENT_SCRIPT}" generate-client.sh
+cp "${GENERATE_SERVER_SCRIPT}" generate-server.sh
 chmod 755 generate-intermediate-ca.sh
+chmod 755 generate-client.sh
+chmod 755 generate-server.sh
 
 message "Generating CA private key (private/ca.key.pem)"
 prompt_and_store_passphrase private/passphrase
@@ -108,5 +114,8 @@ openssl x509 -noout -text \
 
 # To allow for recursive scripts create a ca chain of 1 for the root CA
 cp certs/ca.cert.pem certs/ca-chain.cert.pem
+
+# TODO
+# generate CRL and revoke scripts
 
 popd >/dev/null

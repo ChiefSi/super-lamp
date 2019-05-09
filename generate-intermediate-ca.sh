@@ -1,4 +1,9 @@
-#!/bin/bash -ex
+#!/bin/bash -e
+
+function on_failure()
+{
+	rm -rf "${1}"
+}
 
 function message()
 {
@@ -17,7 +22,7 @@ EOF
 
 function prompt_and_store_passphrase()
 {
-    OUTPUT="${1}"
+    DEST="${1}"
     ATTEMPT=0
     while [ $ATTEMPT -lt 3 ]; do
 
@@ -30,7 +35,7 @@ function prompt_and_store_passphrase()
         echo
 
         if [ ${PASS1} = ${PASS2} ]; then
-            echo "${PASS1}" > "${OUTPUT}"
+            echo "${PASS1}" > "${DEST}"
             break
         else
             echo "Passwords do not match"
@@ -42,9 +47,9 @@ function prompt_and_store_passphrase()
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 POSITIONAL=()
-SIGNING_CA_DIR=%{SIGNING_CA_DIR}
-GENERATE_INTERMEDIATE_TEMPLATE=%{SIGNING_CA_DIR}/templates/generate-intermediate-ca.sh.in
+SIGNING_CA_DIR="${DIR}"
 INTERMEDIATE_SSL_CNF="${DIR}/templates/intermediate.cnf.in"
+GENERATE_INTERMEDIATE_SCRIPT=`readlink -f ${BASH_SOURCE[0]}`
 
 while [[ $# -gt 0 ]]; do
 	key="$1"
@@ -66,13 +71,16 @@ set -- "${POSITIONAL[@]}"
 
 OUTPUT=
 if [ $# -ge 1 ]; then
-	OUTPUT="intermediates/${1}"
+	OUTPUT=`readlink -f "intermediates/${1}"`
 	[ ! -d "${OUTPUT}" ] && mkdir -p "${OUTPUT}"
 	[ "$(ls -A "${OUTPUT}")" ] && echo "Warning: Destination directory not empty"
 else
 	print_help
 	exit 1
 fi
+
+# Delete the intermediate directory on failure
+trap 'on_failure $OUTPUT' ERR
 
 pushd "${OUTPUT}" >/dev/null
 
@@ -83,7 +91,9 @@ echo 1000 > serial
 echo 1000 > crlnumber
 
 sed "s#%{DIRECTORY}#${OUTPUT}#g" "${INTERMEDIATE_SSL_CNF}" > openssl.cnf
-sed "s#%{SIGNING_CA_DIR}#${OUTPUT}#g" "${GENERATE_INTERMEDIATE_TEMPLATE}" > generate-intermediate-ca.sh
+cp "${GENERATE_INTERMEDIATE_SCRIPT}" generate-intermediate-ca.sh
+mkdir templates
+cp "${INTERMEDIATE_SSL_CNF}" templates/
 
 message "Generating CA private key (private/intermediate.key.pem)"
 prompt_and_store_passphrase private/passphrase
@@ -103,7 +113,7 @@ openssl ca -config ${SIGNING_CA_DIR}/openssl.cnf -extensions v3_intermediate_ca 
 
 chmod 444 certs/intermediate.cert.pem
 
-message ""
+message "Intermiediate certificate:"
 openssl x509 -noout -text \
 	-certopt no_pubkey -certopt no_sigdump \
 	-nameopt multiline \

@@ -16,7 +16,7 @@ EOF
 
 function prompt_and_store_passphrase()
 {
-	OUTPUT="${1}"
+	DEST="${1}"
 	ATTEMPT=0
 	while [ $ATTEMPT -lt 3 ]; do
 
@@ -29,7 +29,7 @@ function prompt_and_store_passphrase()
 		echo
 
 		if [ ${PASS1} = ${PASS2} ]; then
-			echo "${PASS1}" > "${OUTPUT}"
+			echo "${PASS1}" > "${DEST}"
 			break
 		else
 			echo "Passwords do not match"
@@ -43,7 +43,7 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 POSITIONAL=()
 
 ROOT_SSL_CNF="${DIR}/root.cnf.in"
-GENERATE_INTERMEDIATE_SCRIPT="${DIR}/generate-intermediate-ca.sh.in"
+GENERATE_INTERMEDIATE_SCRIPT="${DIR}/generate-intermediate-ca.sh"
 INTERMEDIATE_SSL_CNF_TEMPLATE="${DIR}/intermediate.cnf.in"
 
 while [[ $# -gt 0 ]]; do
@@ -66,7 +66,7 @@ set -- "${POSITIONAL[@]}"
 
 OUTPUT=
 if [ $# -ge 1 ]; then
-	OUTPUT="${1}"
+	OUTPUT=`readlink -f "${1}"`
 	[ ! -d "${OUTPUT}" ] && mkdir -p "${OUTPUT}"
 	[ "$(ls -A "${OUTPUT}")" ] && echo "Warning: Destination directory not empty"
 else
@@ -85,8 +85,7 @@ sed "s#%{DIRECTORY}#${OUTPUT}#g" "${ROOT_SSL_CNF}" > openssl.cnf
 
 mkdir intermediates templates
 cp "${INTERMEDIATE_SSL_CNF_TEMPLATE}" templates/
-cp "${GENERATE_INTERMEDIATE_SCRIPT}" templates/
-sed "s#%{SIGNING_CA_DIR}#${OUTPUT}#g" "${GENERATE_INTERMEDIATE_SCRIPT}" > generate-intermediate-ca.sh
+cp "${GENERATE_INTERMEDIATE_SCRIPT}" generate-intermediate-ca.sh
 chmod 755 generate-intermediate-ca.sh
 
 message "Generating CA private key (private/ca.key.pem)"
@@ -101,7 +100,7 @@ openssl req -config openssl.cnf \
 	  -out certs/ca.cert.pem
 chmod 444 certs/ca.cert.pem
 
-message ""
+message "Root certificate:"
 openssl x509 -noout -text \
 	-certopt no_pubkey -certopt no_sigdump \
 	-nameopt multiline \
